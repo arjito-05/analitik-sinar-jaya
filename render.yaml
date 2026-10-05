@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: analitik-sinar-jaya
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: DATABASE_URL
+        value: sqlite:///demo/sinar_jaya.db
