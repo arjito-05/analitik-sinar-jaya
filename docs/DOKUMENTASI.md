@@ -13,7 +13,7 @@ jawaban EDA, dan insight untuk pemilik toko.
 | Pengolahan data | Pandas, NumPy |
 | Visualisasi | Plotly |
 | Tampilan | HTML + Jinja2 + Bootstrap 5 + CSS |
-| Deploy | Render + gunicorn |
+| Deploy | render/PythonAnywhere + gunicorn |
 
 ## 2. Alur pengolahan data
 
