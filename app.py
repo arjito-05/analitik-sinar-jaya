@@ -1,4 +1,7 @@
-from flask import Flask, render_template, request
+import hmac
+import os
+
+from flask import Flask, Response, render_template, request
 import pandas as pd
 import plotly
 import plotly.express as px
@@ -24,6 +27,71 @@ app = Flask(__name__)
 
 
 # =========================================================
+# KEAMANAN
+# =========================================================
+
+# Panjang maksimum parameter filter (mencegah input berlebihan)
+MAX_PARAM_LENGTH = 40
+
+# Autentikasi HTTP Basic OPSIONAL. Aktif hanya jika kedua variabel
+# lingkungan ini di-set (mis. di file WSGI PythonAnywhere).
+DASHBOARD_USER = os.getenv("DASHBOARD_USER", "")
+DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "")
+
+CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.plot.ly; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "img-src 'self' data:; "
+    "font-src 'self' https://cdn.jsdelivr.net data:; "
+    "connect-src 'self'; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "frame-ancestors 'none'"
+)
+
+
+@app.before_request
+def require_basic_auth():
+    """Lindungi dashboard dengan HTTP Basic bila kredensial di-set."""
+
+    if not (DASHBOARD_USER and DASHBOARD_PASSWORD):
+        return None
+
+    auth = request.authorization
+
+    ok = (
+        auth is not None
+        and hmac.compare_digest(auth.username or "", DASHBOARD_USER)
+        and hmac.compare_digest(auth.password or "", DASHBOARD_PASSWORD)
+    )
+
+    if ok:
+        return None
+
+    return Response(
+        "Autentikasi diperlukan.",
+        401,
+        {"WWW-Authenticate": 'Basic realm="Dashboard Sinar Jaya"'}
+    )
+
+
+@app.after_request
+def add_security_headers(response):
+    response.headers["Content-Security-Policy"] = CSP
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=()"
+    )
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    return response
+
+
+
+# =========================================================
 # DASHBOARD
 # =========================================================
 
@@ -34,9 +102,9 @@ def dashboard():
     # Ambil parameter filter (tetap sebagai string untuk form)
     # -----------------------------------------
 
-    start_date = request.args.get("start_date", "").strip()
-    end_date = request.args.get("end_date", "").strip()
-    selected_category = request.args.get("category", "").strip()
+    start_date = request.args.get("start_date", "").strip()[:MAX_PARAM_LENGTH]
+    end_date = request.args.get("end_date", "").strip()[:MAX_PARAM_LENGTH]
+    selected_category = request.args.get("category", "").strip()[:MAX_PARAM_LENGTH]
 
     filter_notes = []
 
@@ -398,6 +466,9 @@ def dashboard():
 # =========================================================
 
 if __name__ == "__main__":
+    # Mode debug hanya untuk pengembangan lokal: set FLASK_DEBUG=1.
+    # Jangan pernah aktif di server publik (debugger Werkzeug dapat
+    # menjalankan kode dari browser).
     app.run(
-        debug=True
+        debug=os.getenv("FLASK_DEBUG") == "1"
     )

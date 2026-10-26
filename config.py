@@ -1,5 +1,7 @@
 import os
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # ---------------------------------------------------------
 # Koneksi database
 #
@@ -24,6 +26,14 @@ if _env_url:
         _env_url = _env_url.replace("postgres://", "postgresql://", 1)
 
     DATABASE_URL = _env_url
+
+    # Path SQLite relatif (sqlite:///demo/x.db) dihitung dari folder proyek,
+    # bukan dari folder kerja server, supaya aman di hosting mana pun.
+    _prefix = "sqlite:///"
+    if DATABASE_URL.startswith(_prefix) and not DATABASE_URL.startswith("sqlite:////"):
+        _path = DATABASE_URL[len(_prefix):]
+        if _path and not os.path.isabs(_path) and ":" not in _path[:3]:
+            DATABASE_URL = _prefix + os.path.join(BASE_DIR, _path).replace("\\", "/")
 else:
     DATABASE_URL = (
         f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}"

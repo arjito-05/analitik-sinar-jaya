@@ -13,7 +13,7 @@ jawaban EDA, dan insight untuk pemilik toko.
 | Pengolahan data | Pandas, NumPy |
 | Visualisasi | Plotly |
 | Tampilan | HTML + Jinja2 + Bootstrap 5 + CSS |
-| Deploy | render/PythonAnywhere + gunicorn |
+| Deploy | Render + gunicorn |
 
 ## 2. Alur pengolahan data
 
@@ -128,21 +128,67 @@ python app.py
 
 Membuat ulang CSV dan grafik statis: `python -m analysis.eda`.
 
-## 9. Deploy ke Render
+## 9. Deploy (hosting)
 
-1. Salin data ke SQLite: `python -m scripts.export_mysql_to_sqlite` (hasil `demo/sinar_jaya.db`).
-   Skrip hanya menyalin 5 tabel analitik; tabel `admin` dan kolom `no_telepon`/`email`
-   pelanggan sengaja tidak ikut karena file ini akan dipublikasikan.
-2. Push proyek ke GitHub (tanpa folder `venv`).
-3. Di Render, buat Web Service dari repo (otomatis membaca `render.yaml`):
-   Build `pip install -r requirements.txt`, Start `gunicorn app:app`,
-   variabel `DATABASE_URL=sqlite:///demo/sinar_jaya.db`.
+Aplikasi hanya membaca database SQLite (`demo/sinar_jaya.db`), sehingga dapat dihosting
+tanpa server database. File ini dibuat dengan `python -m scripts.export_mysql_to_sqlite`.
+Skrip hanya menyalin 5 tabel analitik; tabel `admin` dan kolom `no_telepon`/`email`
+pelanggan sengaja tidak ikut karena file ini akan dipublikasikan.
 
-Catatan: layanan gratis Render tertidur bila lama tidak diakses, jadi buka sekali
-sebelum demo.
+### Opsi A. PythonAnywhere (gratis, tanpa kartu)
+
+1. Daftar akun **Beginner** di pythonanywhere.com. Username menentukan URL
+   `https://USERNAME.pythonanywhere.com`.
+2. Tab **Files**: unggah `analitik_web_fixed.zip`. Tab **Consoles** > Bash:
+   `unzip analitik_web_fixed.zip` (hasil: folder `analitik_web`).
+3. Di Bash console, pasang plotly (pandas, numpy, Flask, SQLAlchemy umumnya sudah
+   tersedia; sesuaikan angka versi Python dengan yang dipilih pada langkah 4):
+   `pip3.12 install --user plotly`
+4. Tab **Web** > **Add a new web app** > **Manual configuration** > pilih Python 3.12.
+5. Isi **Source code** dan **Working directory** dengan `/home/USERNAME/analitik_web`.
+6. Buka **WSGI configuration file**, ganti seluruh isinya dengan:
+
+```python
+import os
+import sys
+
+path = "/home/USERNAME/analitik_web"
+if path not in sys.path:
+    sys.path.insert(0, path)
+
+os.environ["DATABASE_URL"] = "sqlite:///demo/sinar_jaya.db"
+
+from app import app as application
+```
+
+7. Klik **Reload**, lalu buka `https://USERNAME.pythonanywhere.com`.
+   Jika error, baca **Error log** pada tab Web.
+
+Catatan: akun gratis perlu diperpanjang berkala lewat tombol di tab Web, dan
+penyimpanannya terbatas 512 MB (jangan membuat virtualenv).
+
+### Opsi B. Render (butuh verifikasi kartu)
+
+Di dashboard Render: **New > Web Service**, hubungkan repo GitHub, Language `Python 3`,
+Build Command `pip install -r requirements.txt`, Start Command `gunicorn app:app`,
+Instance Type `Free`. Environment variables: `DATABASE_URL` =
+`sqlite:///demo/sinar_jaya.db` dan `PYTHON_VERSION` = `3.12.3`. Layanan Free tertidur
+setelah 15 menit tanpa akses (bangun kembali sekitar 1 menit).
 
 ## 10. Screenshot
 
 Simpan di `docs/screenshots/`: (1) dashboard tanpa filter (KPI dan tren),
 (2) grafik produk dan kategori, (3) tabel stok rendah dan slow moving,
 (4) bagian Hasil EDA dan insight, (5) dashboard dengan filter tanggal + kategori aktif.
+
+## 11. Keamanan
+
+Analisis kerentanan lengkap ada di `docs/ANALISIS_KEAMANAN.md`. Pengaturan terkait keamanan:
+
+| Variabel lingkungan | Fungsi |
+|---|---|
+| `FLASK_DEBUG=1` | Mengaktifkan mode debug (hanya untuk pengembangan lokal) |
+| `DASHBOARD_USER`, `DASHBOARD_PASSWORD` | Mengaktifkan autentikasi HTTP Basic bila keduanya di-set |
+| `DATABASE_URL` | Alamat database; hindari kredensial di dalam kode |
+
+Uji keamanan dasar dapat diulang dengan `python -m scripts.uji_keamanan`.

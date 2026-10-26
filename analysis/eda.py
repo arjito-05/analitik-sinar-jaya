@@ -12,7 +12,8 @@ from database import engine
 # KONFIGURASI
 # =========================================================
 
-OUTPUT_DIR = "output"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 CSV_DIR = os.path.join(OUTPUT_DIR, "csv")
 CHART_DIR = os.path.join(OUTPUT_DIR, "charts")
 
